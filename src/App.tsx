@@ -9,6 +9,7 @@ import {
 } from "../game/frontend-adapter.js";
 import { canSubmitSave, submitMatchRequest } from "../game/save-flow.js";
 import { fetchRoster } from "../game/roster.js";
+import { applyExtort } from "../game/extort.js";
 import type { RosterPlayer, SaveState, TrackerPlayer } from "./types";
 
         const IconMinus = ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="5" y1="12" x2="19" y2="12"></line></svg>;
@@ -393,11 +394,16 @@ import type { RosterPlayer, SaveState, TrackerPlayer } from "./types";
           const applyMassEffect = (type) => {
             const sourceId = activeEffectPlayerId;
             const X = effectValue;
+
+            if (type === 'extort') {
+              const result = applyExtort(players, sourceId, X);
+              setPlayers(result.players);
+              recordLifeGain(sourceId, result.controllerLifeGain);
+              closeMassEffect();
+              return;
+            }
             
             setPlayers(prev => {
-              const aliveOpponents = prev.filter(p => p.id !== sourceId && !p.isDead);
-              const numOpponents = aliveOpponents.length;
-
               return prev.map(p => {
                 if (p.isDead) return p;
                 let newLife = p.life;
@@ -406,9 +412,6 @@ import type { RosterPlayer, SaveState, TrackerPlayer } from "./types";
                 else if (type === 'drain') {
                   if (p.id !== sourceId) newLife -= X;
                   else newLife += X;
-                } else if (type === 'extort') {
-                  if (p.id !== sourceId) newLife -= X;
-                  else newLife += (numOpponents * X);
                 }
                 return { ...p, life: newLife };
               });
