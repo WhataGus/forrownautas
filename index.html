@@ -49,6 +49,7 @@
 <body class="bg-black text-white font-sans select-none">
 
     <div id="root"></div>
+    <script type="module" src="./game/browser-adapter.js"></script>
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
@@ -139,26 +140,47 @@
           const [endGameWinners, setEndGameWinners] = useState([]);
           const [endGameWinCon, setEndGameWinCon] = useState('Combate');
           const [endGameInfinite, setEndGameInfinite] = useState(false);
+          const [saveState, setSaveState] = useState({ status: 'idle', error: null });
+          const [domainError, setDomainError] = useState(null);
 
           const quadrantRefs = useRef({});
           const prevPlayersRef = useRef(players);
+          const canonicalMatchRef = useRef(null);
+          const saveInFlightRef = useRef(false);
 
           // Códigos de tipo de dano — precisam bater com DAMAGE_TYPE em db/constants.ts
           const DMG_COMBAT = 0, DMG_COMMANDER = 1, DMG_INFECT = 2, DMG_NONCOMBAT = 3;
 
           // Acumuladores da partida. Ficam num ref (e não no state dos jogadores)
           // para não disparar re-render a cada ponto de dano registrado.
-          const matchStatsRef = useRef({ damage: {}, lifeGained: {}, eliminations: {} });
+          const matchStatsRef = useRef({ lifeGained: {}, eliminations: {} });
 
           const resetMatchStats = () => {
-            matchStatsRef.current = { damage: {}, lifeGained: {}, eliminations: {} };
+            matchStatsRef.current = { lifeGained: {}, eliminations: {} };
           };
 
-          const recordDamage = (sourceId, targetId, type, amount) => {
-            if (!sourceId || !targetId || sourceId === targetId || !amount) return;
-            const key = sourceId + '|' + targetId + '|' + type;
-            const acc = matchStatsRef.current.damage;
-            acc[key] = (acc[key] || 0) + amount;
+          const getGameBridge = () => {
+            const bridge = window.ForrownautasGameBridge;
+            return bridge?.ready && bridge.api ? bridge.api : null;
+          };
+          const setCanonicalError = () => setDomainError('Regras da partida ainda estão carregando. Tente novamente.');
+          const initializeCanonicalMatch = (startingSeat) => {
+            const bridge = getGameBridge();
+            if (!bridge) { setCanonicalError(); return false; }
+            canonicalMatchRef.current = bridge.createFrontendMatch(players, startingSeat, startingLife);
+            setDomainError(null);
+            return true;
+          };
+          const applyCanonicalDamage = (damage) => {
+            const bridge = getGameBridge();
+            if (!bridge || !canonicalMatchRef.current) { setCanonicalError(); return false; }
+            canonicalMatchRef.current = bridge.applyTrackedDamage(canonicalMatchRef.current, damage);
+            setPlayers(prev => bridge.projectCommanderDamage(canonicalMatchRef.current, prev));
+            setDomainError(null);
+            return true;
+          };
+          const correctCommanderDamage = (sourceId, targetId) => {
+            applyCanonicalDamage({ sourceId, targetId, damageType: DMG_COMMANDER, amount: -1 });
           };
 
           const recordLifeGain = (playerId, amount) => {
@@ -385,6 +407,12 @@
             }));
           };
 
+          const validateSelectedParticipants = () => {
+            if (players.some(p => !p.userId || !p.deckId)) return 'Selecione um jogador e um deck para cada espaço.';
+            if (new Set(players.map(p => p.userId)).size !== players.length) return 'O mesmo jogador não pode participar duas vezes.';
+            return null;
+          };
+
           const CLOCKWISE_GRID_MAP = [0, 1, 3, 2];
 
           const handlePassTurn = () => {
@@ -515,7 +543,7 @@
             const dmgCode = damageModal.isInfect
               ? DMG_INFECT
               : (damageType === 'commander' ? DMG_COMMANDER : DMG_COMBAT);
-            recordDamage(damageModal.attackerId, damageModal.targetId, dmgCode, damageInput);
+            if (!applyCanonicalDamage({ sourceId: damageModal.attackerId, targetId: damageModal.targetId, damageType: dmgCode, amount: damageInput })) return;
             if (damageModal.isLifelink) recordLifeGain(damageModal.attackerId, damageInput);
 
             setPlayers(prev => {
@@ -558,6 +586,7 @@
           const startRandomPlayer = () => {
             const aliveIndices = players.map((p, idx) => idx);
             const randomIndex = aliveIndices[Math.floor(Math.random() * aliveIndices.length)];
+            if (!initializeCanonicalMatch(randomIndex)) return;
             setActivePlayerIdx(randomIndex);
             setStartingPlayerIdx(randomIndex);
             setStartModalOpen(false);
@@ -568,6 +597,7 @@
             if (selectedStartingId !== null) {
               const idx = players.findIndex(p => p.id === selectedStartingId);
               if (idx !== -1) {
+                if (!initializeCanonicalMatch(idx)) return;
                 setActivePlayerIdx(idx);
                 setStartingPlayerIdx(idx);
               }
@@ -594,11 +624,6 @@
           };
 
           const buildMatchPayload = () => {
-             // O assento é o índice do jogador no array — é a chave compacta que o
-             // banco usa no lugar de um UUID por linha da matriz de dano.
-             const seatOf = {};
-             players.forEach((p, idx) => { seatOf[p.id] = idx; });
-
              const stats = matchStatsRef.current;
 
              // Colocação: vencedores em 1º; os demais por ordem inversa de
@@ -610,15 +635,9 @@
              players.forEach(p => { if (endGameWinners.includes(p.id)) placementOf[p.id] = 1; });
              losers.forEach((p, i) => { placementOf[p.id] = 2 + i; });
 
-             const damage = Object.entries(stats.damage).map(([key, amount]) => {
-               const [sourceId, targetId, type] = key.split('|');
-               return {
-                 sourceSeat: seatOf[sourceId],
-                 targetSeat: seatOf[targetId],
-                 damageType: Number(type),
-                 amount
-               };
-             }).filter(d => d.sourceSeat !== undefined && d.targetSeat !== undefined);
+             const bridge = getGameBridge();
+             if (!bridge || !canonicalMatchRef.current) return null;
+             const damage = bridge.damagePayloadFrom(canonicalMatchRef.current);
 
              return {
                durationSeconds: matchTime,
@@ -626,7 +645,7 @@
                wentInfinite: endGameInfinite,
                turnCount: turnNumber,
                startingLife,
-               startingSeat: startingPlayerIdx,
+               startingSeat: bridge.startingSeatOf(canonicalMatchRef.current),
                players: players.map(p => ({
                  playerId: p.userId || null,
                  deckId: p.deckId || null,
@@ -646,15 +665,18 @@
           };
 
           const confirmEndGameAndReset = async () => {
-             // Salva o resultado da partida no banco de dados
-             try {
-               await fetch('/api/matches', {
-                 method: 'POST',
-                 headers: { 'Content-Type': 'application/json' },
-                 body: JSON.stringify(buildMatchPayload())
-               });
-             } catch (err) {
-               console.error("Erro ao salvar partida:", err);
+             const bridge = getGameBridge();
+             if (!bridge) { setCanonicalError(); return; }
+             if (!bridge.canSubmitSave(saveInFlightRef.current)) return;
+             const payload = buildMatchPayload();
+             if (!bridge || !payload) { setCanonicalError(); return; }
+             saveInFlightRef.current = true;
+             setSaveState({ status: 'saving', error: null });
+             const result = await bridge.submitMatchRequest(fetch, payload);
+             if (!result.ok) {
+               saveInFlightRef.current = false;
+               setSaveState({ status: 'error', error: result.error });
+               return;
              }
 
              resetMatchStats();
@@ -665,6 +687,9 @@
              setIsPaused(false);
              setPendingEliminations([]);
              setStartingPlayerIdx(null);
+             canonicalMatchRef.current = null;
+             saveInFlightRef.current = false;
+             setSaveState({ status: 'idle', error: null });
              setPlayers(prev => prev.map(p => ({
                  ...p, life: startingLife, tax: 0, poison: 0, mulligans: 0, isDead: false, commanderDamage: {}
              })));
@@ -814,11 +839,12 @@
                 </div>
 
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-2 md:gap-4 transform transition-transform">
-                  <button onClick={() => { setStartModalOpen(true); setGameStage('starting_player'); }} className="bg-cyan-500 hover:bg-cyan-400 text-black font-black w-20 h-20 md:w-24 md:h-24 rounded-full shadow-[0_0_40px_rgba(6,182,212,0.6)] flex flex-col items-center justify-center transition transform hover:scale-110 active:scale-95 border-4 border-white">
+                  <button onClick={() => { const error = validateSelectedParticipants(); if (error) { setDomainError(error); return; } setDomainError(null); setStartModalOpen(true); setGameStage('starting_player'); }} className="bg-cyan-500 hover:bg-cyan-400 text-black font-black w-20 h-20 md:w-24 md:h-24 rounded-full shadow-[0_0_40px_rgba(6,182,212,0.6)] flex flex-col items-center justify-center transition transform hover:scale-110 active:scale-95 border-4 border-white">
                     <IconPlay size={28} className="translate-x-0.5 fill-current mb-1 md:w-8 md:h-8" />
                     <span className="text-[9px] md:text-[10px] uppercase tracking-wider font-bold">Start</span>
                   </button>
                   <button onClick={() => setGameStage('setup')} className="bg-[#1a1c23] text-gray-300 hover:text-white px-4 py-1.5 md:px-5 md:py-2 rounded-full text-[10px] md:text-xs font-bold border-2 border-[#2d303b] hover:bg-[#2d303b] shadow-xl transition">&larr; Voltar</button>
+                  {domainError && <span className="text-red-300 text-xs text-center max-w-40">{domainError}</span>}
                 </div>
               </div>
             );
@@ -902,11 +928,13 @@
                   </div>
 
                   <div className="flex flex-col gap-4 mt-8">
-                    <button onClick={confirmEndGameAndReset} className="w-full bg-cyan-500 hover:bg-cyan-400 text-[#12141a] font-bold text-lg py-4 rounded-full shadow-lg transition transform active:scale-95">
-                      Confirm winners and rate game
+                    {saveState.status === 'error' && <p className="text-red-400 text-sm text-center">{saveState.error}</p>}
+                    {domainError && <p className="text-amber-400 text-sm text-center">{domainError}</p>}
+                    <button onClick={confirmEndGameAndReset} disabled={saveState.status === 'saving'} className="w-full bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-[#12141a] font-bold text-lg py-4 rounded-full shadow-lg transition transform active:scale-95">
+                      {saveState.status === 'saving' ? 'Saving...' : 'Confirm winners and rate game'}
                     </button>
-                    <button onClick={confirmEndGameAndReset} className="w-full bg-transparent text-cyan-500 font-bold text-lg py-4 rounded-full hover:bg-cyan-900/20 transition">
-                      Confirm winners and skip rating
+                    <button onClick={confirmEndGameAndReset} disabled={saveState.status === 'saving'} className="w-full bg-transparent disabled:opacity-50 text-cyan-500 font-bold text-lg py-4 rounded-full hover:bg-cyan-900/20 transition">
+                      {saveState.status === 'saving' ? 'Saving...' : 'Confirm winners and skip rating'}
                     </button>
                   </div>
                 </div>
@@ -967,7 +995,7 @@
                               </div>
                             </div>
                             
-                            {player.poison > 0 && (
+                            {(
                               <div className="flex flex-col items-center rounded-lg p-1 sm:p-2 border bg-green-900/30 border-green-500/50 text-green-400">
                                 <span className="text-[8px] sm:text-[10px] uppercase font-bold opacity-80 flex items-center gap-1"><IconDroplet size={8}/> Poison</span>
                                 <div className="flex items-center gap-1 sm:gap-2">
@@ -982,7 +1010,7 @@
                               if (dmg <= 0) return null;
                               const attacker = players.find(p => p.id === atkId);
                               return (
-                                <div key={atkId} onClick={(e) => { e.stopPropagation(); setPlayers(prev => prev.map(p => { if(p.id === player.id) { const newCmdDmg = {...p.commanderDamage}; newCmdDmg[atkId] = Math.max(0, newCmdDmg[atkId] - 1); return {...p, commanderDamage: newCmdDmg}; } return p; })); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="flex items-center justify-center gap-1 rounded-lg py-0.5 px-2 border cursor-pointer transition-colors bg-red-900/30 border-red-900/50 text-white">
+                                <div key={atkId} onClick={(e) => { e.stopPropagation(); correctCommanderDamage(atkId, player.id); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="flex items-center justify-center gap-1 rounded-lg py-0.5 px-2 border cursor-pointer transition-colors bg-red-900/30 border-red-900/50 text-white">
                                   <span className="text-[10px] font-bold opacity-70">{getInitials(attacker?.name)}</span>
                                   <span className="font-bold text-sm leading-none">{dmg}</span>
                                 </div>
@@ -995,6 +1023,8 @@
                   )
                 })}
               </div>
+
+              {domainError && <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 bg-red-900/90 text-white text-xs px-3 py-2 rounded-lg">{domainError}</div>}
 
               {showAutoEndGameBtn && !currentElimination && !damageModal.isOpen && !activeEffectPlayerId && !resetPromptOpen && (
                 <div className="absolute bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 z-30 transition-transform">
@@ -1111,7 +1141,7 @@
                       <button onClick={() => { 
                         setResetPromptOpen(false); 
                         resetMatchStats();
-                        setMatchTime(0); setTurnTime(0); setTurnNumber(1); setIsPaused(false); setPendingEliminations([]); setStartingPlayerIdx(null);
+                        setMatchTime(0); setTurnTime(0); setTurnNumber(1); setIsPaused(false); setPendingEliminations([]); setStartingPlayerIdx(null); canonicalMatchRef.current = null;
                         setPlayers(prev => prev.map(p => ({...p, life: startingLife, tax: 0, poison: 0, mulligans: 0, isDead: false, commanderDamage: {}})));
                         setGameStage('setup'); 
                       }} className="flex-1 py-2 bg-red-700 rounded-lg font-bold text-white text-xs">Confirmar</button>
