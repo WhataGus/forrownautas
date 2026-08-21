@@ -1,25 +1,11 @@
 import type { Config } from "@netlify/functions";
-import { sql } from "drizzle-orm";
+import { inArray, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { matches, matchPlayers, matchDamage } from "../../db/schema.js";
+import { decks, matches, matchPlayers, matchDamage, players } from "../../db/schema.js";
 import { runAtomic } from "../../db/atomic.js";
 import { uuidv7 } from "../../db/ids.js";
 import { TAG, cachedJson, uncachedJson, purgeTags } from "../lib/cache.js";
-
-const MAX_SEATS = 8;
-
-/** Clamp to a column's range so a malformed client payload can't fail the insert. */
-const clamp = (v: unknown, min: number, max: number, fallback: number): number => {
-  const n = Math.trunc(Number(v));
-  if (!Number.isFinite(n)) return fallback;
-  return Math.max(min, Math.min(max, n));
-};
-
-/** For smallint columns (placement, life, poison, damage...). */
-const int16 = (v: unknown, fallback = 0) => clamp(v, -32768, 32767, fallback);
-
-/** For the integer columns: duration_seconds and eliminated_at_seconds. */
-const int32 = (v: unknown, fallback = 0) => clamp(v, -2147483648, 2147483647, fallback);
+import { MatchContractError, validateMatchContract } from "../lib/match-contract.js";
 
 export default async (req: Request) => {
   if (req.method === "GET") return getMatches(req);
@@ -35,9 +21,22 @@ async function createMatch(req: Request) {
     return uncachedJson({ error: "invalid JSON body" }, 400);
   }
 
-  const seats = Array.isArray(payload?.players) ? payload.players.slice(0, MAX_SEATS) : [];
-  if (seats.length === 0) {
-    return uncachedJson({ error: "at least one player is required" }, 400);
+  const suppliedPlayers = Array.isArray(payload?.players) ? payload.players : [];
+  const playerIds = [...new Set(suppliedPlayers.map((player: any) => player?.playerId).filter((id: unknown): id is string => typeof id === "string" && id.length > 0))];
+  const deckIds = [...new Set(suppliedPlayers.map((player: any) => player?.deckId).filter((id: unknown): id is string => typeof id === "string" && id.length > 0))];
+  const [rosterPlayers, rosterDecks] = await Promise.all([
+    playerIds.length > 0 ? db.select({ id: players.id, name: players.name }).from(players).where(inArray(players.id, playerIds)) : [],
+    deckIds.length > 0 ? db.select({ id: decks.id, playerId: decks.playerId, name: decks.name }).from(decks).where(inArray(decks.id, deckIds)) : [],
+  ]);
+
+  let contract: ReturnType<typeof validateMatchContract>;
+  try {
+    contract = validateMatchContract(payload, { players: rosterPlayers, decks: rosterDecks });
+  } catch (err) {
+    if (err instanceof MatchContractError) {
+      return uncachedJson({ error: err.message, code: err.code }, 422);
+    }
+    throw err;
   }
 
   // Generated here rather than by the database default, so all three inserts
@@ -46,46 +45,16 @@ async function createMatch(req: Request) {
 
   const matchRow = {
     id: matchId,
-    durationSeconds: int32(payload.durationSeconds, 0),
-    winCondition: payload.winCondition ?? null,
-    wentInfinite: !!payload.wentInfinite,
-    turnCount: int16(payload.turnCount),
-    startingLife: int16(payload.startingLife, 40),
-    playerCount: seats.length,
+    ...contract.match,
   };
 
-  const playerRows = seats.map((p: any, seat: number) => ({
+  const playerRows = contract.players.map((p: any) => ({
     id: uuidv7(),
     matchId,
-    seat,
-    playerId: p?.playerId || null,
-    deckId: p?.deckId || null,
-    playerName: String(p?.playerName ?? "Unknown").slice(0, 120),
-    deckName: String(p?.deckName ?? "Unknown").slice(0, 120),
-    isWinner: !!p?.isWinner,
-    placement: int16(p?.placement),
-    finalLife: int16(p?.finalLife),
-    poisonReceived: int16(p?.poisonReceived),
-    mulligans: int16(p?.mulligans),
-    lifeGained: int16(p?.lifeGained),
-    eliminatedAtSeconds: p?.eliminatedAtSeconds == null ? null : int32(p.eliminatedAtSeconds),
-    eliminationReason: p?.eliminationReason ?? null,
+    ...p,
   }));
 
-  // Compact damage matrix. Only non-zero pairs are stored, and the last write
-  // for a given (source, target, type) wins so a duplicated client entry can't
-  // violate the composite primary key.
-  const damageByKey = new Map<string, { sourceSeat: number; targetSeat: number; damageType: number; amount: number }>();
-  for (const d of Array.isArray(payload?.damage) ? payload.damage : []) {
-    const sourceSeat = int16(d?.sourceSeat, -1);
-    const targetSeat = int16(d?.targetSeat, -1);
-    const damageType = int16(d?.damageType, -1);
-    const amount = int16(d?.amount);
-    const seatOk = (s: number) => s >= 0 && s < seats.length;
-    if (!seatOk(sourceSeat) || !seatOk(targetSeat) || damageType < 0 || amount === 0) continue;
-    damageByKey.set(`${sourceSeat}:${targetSeat}:${damageType}`, { sourceSeat, targetSeat, damageType, amount });
-  }
-  const damageRows = Array.from(damageByKey.values(), (d) => ({ matchId, ...d }));
+  const damageRows = contract.damage.map((damage) => ({ matchId, ...damage }));
 
   try {
     await runAtomic((handle) => {
@@ -122,6 +91,7 @@ async function getMatches(req: Request) {
         'wentInfinite', m.went_infinite,
         'turnCount', m.turn_count,
         'startingLife', m.starting_life,
+        'startingSeat', m.starting_seat,
         'playerCount', m.player_count,
         'players', coalesce((
           SELECT json_agg(json_build_object(
@@ -168,7 +138,7 @@ async function getMatches(req: Request) {
     SELECT coalesce(json_agg(row_to_json(t) ORDER BY t.created_at DESC NULLS LAST), '[]'::json) AS payload
     FROM (
       SELECT m.id, m.created_at, m.duration_seconds, m.win_condition,
-             m.went_infinite, m.turn_count, m.starting_life, m.player_count,
+             m.went_infinite, m.turn_count, m.starting_life, m.starting_seat, m.player_count,
              coalesce((
                SELECT json_agg(json_build_object(
                  'seat', mp.seat,

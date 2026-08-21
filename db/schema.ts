@@ -28,6 +28,8 @@ export const matches = pgTable("matches", {
   wentInfinite: boolean("went_infinite").default(false),
   turnCount: smallint("turn_count").notNull().default(0),
   startingLife: smallint("starting_life").notNull().default(40),
+  // Null only for historical matches saved before starting-player persistence.
+  startingSeat: smallint("starting_seat"),
   playerCount: smallint("player_count").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow(),
 }, (t) => [
