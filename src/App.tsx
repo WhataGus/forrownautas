@@ -889,7 +889,7 @@ import type { RosterPlayer, SaveState, TrackerPlayer } from "./types";
                       )}
 
                       <div className={`game-player-content w-full h-full transition-transform duration-300 ${idx < 2 ? 'rotate-180' : ''} ${player.isDead ? 'opacity-20 pointer-events-none' : ''}`}>
-                        <div className={`game-player-identity flex justify-between items-start ${player.textColor}`}>
+                        <div className={`game-player-identity flex justify-between items-start rounded-lg border border-black/15 bg-black/15 ${player.textColor}`}>
                           <div className="overflow-hidden">
                             <h2 className="game-player-name text-xl sm:text-2xl font-bold tracking-wider uppercase truncate">{player.name}</h2>
                             <p className="game-player-commander text-xs sm:text-sm italic opacity-70 truncate">{player.commander}</p>
@@ -920,24 +920,27 @@ import type { RosterPlayer, SaveState, TrackerPlayer } from "./types";
                                 <button onClick={(e) => { e.stopPropagation(); updateTax(player.id, 2); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="game-stat-button opacity-60 hover:opacity-100"><IconPlus size={10}/></button>
                               </div>
                             </div>
-                            
-                            {(
-                              <div className="game-stat-control flex flex-col items-center rounded-lg p-1 sm:p-2 border bg-green-900/30 border-green-500/50 text-green-400">
-                                <span className="text-[8px] sm:text-[10px] uppercase font-bold opacity-80 flex items-center gap-1"><IconDroplet size={8}/> Poison</span>
-                                <div className="flex items-center gap-1 sm:gap-2">
-                                  <button onClick={(e) => { e.stopPropagation(); updatePoison(player.id, -1); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="game-stat-button opacity-70 hover:opacity-100"><IconMinus size={10}/></button>
-                                  <span className="game-stat-value font-bold text-xs sm:text-base">{player.poison}</span>
-                                  <button onClick={(e) => { e.stopPropagation(); updatePoison(player.id, 1); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="game-stat-button opacity-70 hover:opacity-100"><IconPlus size={10}/></button>
-                                </div>
-                              </div>
-                            )}
                           </div>
                           <div className="game-commander-damage-list flex flex-wrap gap-1 sm:gap-2 items-center">
+                            {player.poison > 0 && (
+                              <button
+                                type="button"
+                                title="Reduzir poison em 1"
+                                aria-label={`Poison ${player.poison}. Toque para reduzir em 1.`}
+                                onClick={(e) => { e.stopPropagation(); updatePoison(player.id, -1); }}
+                                onDoubleClick={(e) => e.stopPropagation()}
+                                onPointerDown={(e) => e.stopPropagation()}
+                                className="game-received-badge game-poison-badge flex items-center justify-center gap-1 rounded-lg border bg-green-900/30 border-green-500/50 text-green-400"
+                              >
+                                <IconDroplet size={11}/>
+                                <span className="font-bold text-sm leading-none">{player.poison}</span>
+                              </button>
+                            )}
                             {(Object.entries(player.commanderDamage || {}) as Array<[string, number]>).map(([atkId, dmg]) => {
                               if (dmg <= 0) return null;
                               const attacker = players.find(p => p.id === atkId);
                               return (
-                                <div key={atkId} onClick={(e) => { e.stopPropagation(); correctCommanderDamage(atkId, player.id); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="game-commander-damage flex items-center justify-center gap-1 rounded-lg py-0.5 px-2 border cursor-pointer transition-colors bg-red-900/30 border-red-900/50 text-white">
+                                <div key={atkId} onClick={(e) => { e.stopPropagation(); correctCommanderDamage(atkId, player.id); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="game-received-badge game-commander-damage flex items-center justify-center gap-1 rounded-lg border cursor-pointer transition-colors bg-red-900/30 border-red-900/50 text-white">
                                   <span className="text-[10px] font-bold opacity-70">{getInitials(attacker?.name)}</span>
                                   <span className="font-bold text-sm leading-none">{dmg}</span>
                                 </div>
