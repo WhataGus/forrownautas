@@ -5,6 +5,7 @@
   "scripts": {
     "test": "node --test",
     "dev": "vite",
+    "dev:fullstack": "netlify dev",
     "build": "tsc -p tsconfig.app.json && vite build",
     "preview": "vite preview"
   },
@@ -21,6 +22,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "drizzle-kit": "^1.0.0-beta.22",
+    "netlify-cli": "27.1.2",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.15",
     "typescript": "^5.7.2",

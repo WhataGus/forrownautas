@@ -8,6 +8,7 @@ import {
   startingSeatOf,
 } from "../game/frontend-adapter.js";
 import { canSubmitSave, submitMatchRequest } from "../game/save-flow.js";
+import { fetchRoster } from "../game/roster.js";
 import type { RosterPlayer, SaveState, TrackerPlayer } from "./types";
 
         const IconMinus = ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="5" y1="12" x2="19" y2="12"></line></svg>;
@@ -142,31 +143,7 @@ import type { RosterPlayer, SaveState, TrackerPlayer } from "./types";
           useEffect(() => {
             async function loadRoster() {
               try {
-                let roster = await fetch('/api/players').then(r => r.json());
-
-                if (!roster || roster.length === 0) {
-                  const seedPlayers = [
-                    { name: 'Gustavo', decks: ['Criatura Verde', 'Greasefang'] },
-                    { name: 'Guest 1', decks: ['Alado'] },
-                    { name: 'Guest 2', decks: ['Mago Sombrio'] },
-                    { name: 'Guest 3', decks: ['Guerreiro'] }
-                  ];
-                  for (const seed of seedPlayers) {
-                    const created = await fetch('/api/players', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ name: seed.name, deckName: seed.decks[0] })
-                    }).then(r => r.json());
-                    for (const extraDeck of seed.decks.slice(1)) {
-                      await fetch('/api/decks', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ playerId: created.id, name: extraDeck })
-                      });
-                    }
-                  }
-                  roster = await fetch('/api/players').then(r => r.json());
-                }
+                const roster = await fetchRoster(fetch);
 
                 setRegisteredRoster(roster);
 
