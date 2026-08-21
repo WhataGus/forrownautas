@@ -123,6 +123,7 @@ test("four-player turns follow the prototype's visual clockwise map and skip eli
   state = advanceFourPlayerTurn(state);
   assert.equal(state.activePlayerId, "p1");
   assert.equal(state.turnNumber, 2);
+  assert.equal(state.startingPlayerId, "p1");
 });
 
 test("reset starts a clean match without inherited transient values", () => {
@@ -157,6 +158,7 @@ test("normal completed-match payload maps authoritative state to the existing AP
     wentInfinite: false,
     turnCount: 1,
     startingLife: 40,
+    startingSeat: 0,
     players: [
       { playerId: "user-1", deckId: "deck-1", playerName: "Player 1", deckName: "Deck 1", isWinner: true, placement: 1, finalLife: 45, poisonReceived: 0, mulligans: 0, lifeGained: 5, eliminatedAtSeconds: null, eliminationReason: null },
       { playerId: "user-2", deckId: "deck-2", playerName: "Player 2", deckName: "Deck 2", isWinner: false, placement: 3, finalLife: 40, poisonReceived: 0, mulligans: 0, lifeGained: 0, eliminatedAtSeconds: 15, eliminationReason: ELIMINATION_REASON.COMMANDER },

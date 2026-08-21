@@ -1,3 +1,5 @@
+import { DAMAGE_TYPE } from "../shared/damage-types.js";
+
 /**
  * Pure Commander match domain.
  *
@@ -7,12 +9,7 @@
  * must do that so the project does not keep two gameplay implementations.
  */
 
-export const DAMAGE_TYPE = Object.freeze({
-  COMBAT: 0,
-  COMMANDER: 1,
-  INFECT: 2,
-  NONCOMBAT: 3,
-});
+export { DAMAGE_TYPE };
 
 export const ELIMINATION_REASON = Object.freeze({
   LIFE: "Vida chegou a 0",
@@ -192,6 +189,7 @@ export function buildMatchPayload(state, { durationSeconds, winCondition, wentIn
   const placements = getNormalPlacements(state);
   const status = getMatchStatus(state);
   const seatOf = Object.fromEntries(state.players.map((player, seat) => [player.id, seat]));
+  const startingSeat = seatOf[state.startingPlayerId];
 
   const damage = Object.entries(state.damage).map(([key, amount]) => {
     const [sourceId, targetId, damageType] = key.split("|");
@@ -209,6 +207,7 @@ export function buildMatchPayload(state, { durationSeconds, winCondition, wentIn
     wentInfinite,
     turnCount: state.turnNumber,
     startingLife: state.startingLife,
+    startingSeat,
     players: state.players.map((player) => ({
       playerId: player.playerId ?? null,
       deckId: player.deckId ?? null,

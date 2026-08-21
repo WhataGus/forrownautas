@@ -117,6 +117,7 @@
           const [turnTime, setTurnTime] = useState(0);
           const [turnNumber, setTurnNumber] = useState(1);
           const [activePlayerIdx, setActivePlayerIdx] = useState(0);
+          const [startingPlayerIdx, setStartingPlayerIdx] = useState(null);
           const [isPaused, setIsPaused] = useState(false);
 
           const [activeEffectPlayerId, setActiveEffectPlayerId] = useState(null);
@@ -558,6 +559,7 @@
             const aliveIndices = players.map((p, idx) => idx);
             const randomIndex = aliveIndices[Math.floor(Math.random() * aliveIndices.length)];
             setActivePlayerIdx(randomIndex);
+            setStartingPlayerIdx(randomIndex);
             setStartModalOpen(false);
             setGameStage('mulligan_phase');
           };
@@ -565,7 +567,10 @@
           const startSelectedPlayer = () => {
             if (selectedStartingId !== null) {
               const idx = players.findIndex(p => p.id === selectedStartingId);
-              if (idx !== -1) setActivePlayerIdx(idx);
+              if (idx !== -1) {
+                setActivePlayerIdx(idx);
+                setStartingPlayerIdx(idx);
+              }
             }
             setStartModalOpen(false);
             setGameStage('mulligan_phase');
@@ -599,7 +604,7 @@
              // Colocação: vencedores em 1º; os demais por ordem inversa de
              // eliminação (quem morreu por último fica melhor colocado).
              const losers = players
-               .filter(p => !endGameWinners.includes(p.id))
+               .filter(p => !endGameWinners.includes(p.id) && stats.eliminations[p.id])
                .sort((a, b) => (stats.eliminations[b.id]?.atSeconds ?? Infinity) - (stats.eliminations[a.id]?.atSeconds ?? Infinity));
              const placementOf = {};
              players.forEach(p => { if (endGameWinners.includes(p.id)) placementOf[p.id] = 1; });
@@ -621,6 +626,7 @@
                wentInfinite: endGameInfinite,
                turnCount: turnNumber,
                startingLife,
+               startingSeat: startingPlayerIdx,
                players: players.map(p => ({
                  playerId: p.userId || null,
                  deckId: p.deckId || null,
@@ -658,6 +664,7 @@
              setTurnNumber(1);
              setIsPaused(false);
              setPendingEliminations([]);
+             setStartingPlayerIdx(null);
              setPlayers(prev => prev.map(p => ({
                  ...p, life: startingLife, tax: 0, poison: 0, mulligans: 0, isDead: false, commanderDamage: {}
              })));
@@ -1104,7 +1111,7 @@
                       <button onClick={() => { 
                         setResetPromptOpen(false); 
                         resetMatchStats();
-                        setMatchTime(0); setTurnTime(0); setTurnNumber(1); setIsPaused(false); setPendingEliminations([]);
+                        setMatchTime(0); setTurnTime(0); setTurnNumber(1); setIsPaused(false); setPendingEliminations([]); setStartingPlayerIdx(null);
                         setPlayers(prev => prev.map(p => ({...p, life: startingLife, tax: 0, poison: 0, mulligans: 0, isDead: false, commanderDamage: {}})));
                         setGameStage('setup'); 
                       }} className="flex-1 py-2 bg-red-700 rounded-lg font-bold text-white text-xs">Confirmar</button>

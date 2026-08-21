@@ -1,3 +1,5 @@
+import { DAMAGE_TYPE } from "../shared/damage-types.js";
+
 /**
  * Damage type codes stored in match_damage.damage_type.
  *
@@ -5,12 +7,7 @@
  * highest-volume table in the schema. The same codes are mirrored in the
  * front-end tracker in index.html — keep the two in sync.
  */
-export const DAMAGE_TYPE = {
-  COMBAT: 0,
-  COMMANDER: 1,
-  INFECT: 2,
-  NONCOMBAT: 3,
-} as const;
+export { DAMAGE_TYPE };
 
 export const DAMAGE_TYPE_NAME: Record<number, string> = {
   0: "combat",
