@@ -873,13 +873,13 @@ import type { RosterPlayer, SaveState, TrackerPlayer } from "./types";
           const showAutoEndGameBtn = gameStage === 'playing' && aliveCount <= 1;
 
           return (
-            <div className="w-full h-full bg-black text-white overflow-hidden relative font-sans select-none" onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp}>
-              <div className="grid grid-cols-2 grid-rows-2 h-full w-full gap-1 p-1">
+            <div className="gameplay-screen w-full h-full bg-black text-white overflow-hidden relative font-sans select-none" data-player-count={players.length} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp}>
+              <div className="gameplay-grid grid grid-cols-2 h-full w-full gap-1 p-1" data-player-count={players.length} style={{ gridTemplateRows: `repeat(${Math.ceil(players.length / 2)}, minmax(0, 1fr))` }}>
                 {players.map((player, idx) => {
                   const isActive = idx === activePlayerIdx && !isPaused;
                   
                   return (
-                    <div key={player.id} ref={el => quadrantRefs.current[player.id] = el} onDoubleClick={() => !player.isDead && setActiveEffectPlayerId(player.id)} onPointerDown={(e) => !player.isDead && handleStartAttack(player.id, e)} className={`${getQuadrantPadding(idx)} ${isActive ? `border-[6px] ${player.color} z-10` : 'border-[6px] border-black/20 opacity-95'} cursor-pointer touch-none relative`} style={{ backgroundColor: player.bgColor }}>
+                    <div key={player.id} data-seat={idx} ref={el => quadrantRefs.current[player.id] = el} onDoubleClick={() => !player.isDead && setActiveEffectPlayerId(player.id)} onPointerDown={(e) => !player.isDead && handleStartAttack(player.id, e)} className={`game-player-quadrant ${getQuadrantPadding(idx)} ${isActive ? `border-[6px] ${player.color} z-10` : 'border-[6px] border-black/20 opacity-95'} cursor-pointer touch-none relative`} style={{ backgroundColor: player.bgColor }}>
                       {player.isDead && (
                         <div className="absolute inset-0 bg-black/85 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center pointer-events-none">
                             <IconSkull size={48} className="text-red-600 mb-2 opacity-80 sm:w-16 sm:h-16" />
@@ -888,55 +888,56 @@ import type { RosterPlayer, SaveState, TrackerPlayer } from "./types";
                         </div>
                       )}
 
-                      <div className={`w-full h-full flex flex-col justify-between transition-transform duration-300 ${idx < 2 ? 'rotate-180' : ''} ${player.isDead ? 'opacity-20 pointer-events-none' : ''}`}>
-                        <div className={`flex justify-between items-start ${player.textColor}`}>
+                      <div className={`game-player-content w-full h-full transition-transform duration-300 ${idx < 2 ? 'rotate-180' : ''} ${player.isDead ? 'opacity-20 pointer-events-none' : ''}`}>
+                        <div className={`game-player-identity flex justify-between items-start ${player.textColor}`}>
                           <div className="overflow-hidden">
-                            <h2 className="text-xl sm:text-2xl font-bold tracking-wider uppercase truncate">{player.name}</h2>
-                            <p className="text-xs sm:text-sm italic opacity-70 truncate">{player.commander}</p>
+                            <h2 className="game-player-name text-xl sm:text-2xl font-bold tracking-wider uppercase truncate">{player.name}</h2>
+                            <p className="game-player-commander text-xs sm:text-sm italic opacity-70 truncate">{player.commander}</p>
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-center gap-2 sm:gap-6 my-auto flex-grow relative">
-                          <button onClick={(e) => { e.stopPropagation(); updateLife(player.id, -1); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="p-2 sm:p-4 rounded-full transition bg-black/20 hover:bg-black/40 text-white">
+                        <div className="game-life-row flex items-center justify-center gap-2 sm:gap-6 my-auto flex-grow relative">
+                          <button onClick={(e) => { e.stopPropagation(); updateLife(player.id, -1); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="game-life-button p-2 sm:p-4 rounded-full transition bg-black/20 hover:bg-black/40 text-white">
                             <IconMinus size={24} />
                           </button>
                           
-                          <span className={`text-[5.5rem] sm:text-8xl md:text-9xl font-black tabular-nums tracking-tighter leading-none ${player.textColor}`}>
+                          <span className={`game-life-total text-[5.5rem] sm:text-8xl md:text-9xl font-black tabular-nums tracking-tighter leading-none ${player.textColor}`}>
                             {player.life}
                           </span>
 
-                          <button onClick={(e) => { e.stopPropagation(); updateLife(player.id, 1); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="p-2 sm:p-4 rounded-full transition bg-black/20 hover:bg-black/40 text-white">
+                          <button onClick={(e) => { e.stopPropagation(); updateLife(player.id, 1); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="game-life-button p-2 sm:p-4 rounded-full transition bg-black/20 hover:bg-black/40 text-white">
                             <IconPlus size={24} />
                           </button>
                         </div>
 
-                        <div className="flex justify-between items-end gap-1 sm:gap-2">
-                          <div className="flex flex-wrap gap-1 sm:gap-2 items-center max-w-[calc(100%-10px)]">
-                            <div className={`flex flex-col items-center rounded-lg p-1 sm:p-2 border ${player.btnClass}`}>
+                        <div className="game-secondary-row flex items-end gap-1 sm:gap-2">
+                          <div className="game-core-stats flex items-center gap-1 sm:gap-2">
+                            <div className={`game-stat-control flex flex-col items-center rounded-lg p-1 sm:p-2 border ${player.btnClass}`}>
                               <span className="text-[8px] sm:text-[10px] uppercase font-bold opacity-70">Taxa</span>
                               <div className="flex items-center gap-1 sm:gap-2">
-                                <button onClick={(e) => { e.stopPropagation(); updateTax(player.id, -2); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="opacity-60 hover:opacity-100"><IconMinus size={10}/></button>
-                                <span className="font-bold text-xs sm:text-base">{player.tax}</span>
-                                <button onClick={(e) => { e.stopPropagation(); updateTax(player.id, 2); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="opacity-60 hover:opacity-100"><IconPlus size={10}/></button>
+                                <button onClick={(e) => { e.stopPropagation(); updateTax(player.id, -2); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="game-stat-button opacity-60 hover:opacity-100"><IconMinus size={10}/></button>
+                                <span className="game-stat-value font-bold text-xs sm:text-base">{player.tax}</span>
+                                <button onClick={(e) => { e.stopPropagation(); updateTax(player.id, 2); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="game-stat-button opacity-60 hover:opacity-100"><IconPlus size={10}/></button>
                               </div>
                             </div>
                             
                             {(
-                              <div className="flex flex-col items-center rounded-lg p-1 sm:p-2 border bg-green-900/30 border-green-500/50 text-green-400">
+                              <div className="game-stat-control flex flex-col items-center rounded-lg p-1 sm:p-2 border bg-green-900/30 border-green-500/50 text-green-400">
                                 <span className="text-[8px] sm:text-[10px] uppercase font-bold opacity-80 flex items-center gap-1"><IconDroplet size={8}/> Poison</span>
                                 <div className="flex items-center gap-1 sm:gap-2">
-                                  <button onClick={(e) => { e.stopPropagation(); updatePoison(player.id, -1); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="opacity-70 hover:opacity-100"><IconMinus size={10}/></button>
-                                  <span className="font-bold text-xs sm:text-base">{player.poison}</span>
-                                  <button onClick={(e) => { e.stopPropagation(); updatePoison(player.id, 1); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="opacity-70 hover:opacity-100"><IconPlus size={10}/></button>
+                                  <button onClick={(e) => { e.stopPropagation(); updatePoison(player.id, -1); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="game-stat-button opacity-70 hover:opacity-100"><IconMinus size={10}/></button>
+                                  <span className="game-stat-value font-bold text-xs sm:text-base">{player.poison}</span>
+                                  <button onClick={(e) => { e.stopPropagation(); updatePoison(player.id, 1); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="game-stat-button opacity-70 hover:opacity-100"><IconPlus size={10}/></button>
                                 </div>
                               </div>
                             )}
-
+                          </div>
+                          <div className="game-commander-damage-list flex flex-wrap gap-1 sm:gap-2 items-center">
                             {(Object.entries(player.commanderDamage || {}) as Array<[string, number]>).map(([atkId, dmg]) => {
                               if (dmg <= 0) return null;
                               const attacker = players.find(p => p.id === atkId);
                               return (
-                                <div key={atkId} onClick={(e) => { e.stopPropagation(); correctCommanderDamage(atkId, player.id); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="flex items-center justify-center gap-1 rounded-lg py-0.5 px-2 border cursor-pointer transition-colors bg-red-900/30 border-red-900/50 text-white">
+                                <div key={atkId} onClick={(e) => { e.stopPropagation(); correctCommanderDamage(atkId, player.id); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="game-commander-damage flex items-center justify-center gap-1 rounded-lg py-0.5 px-2 border cursor-pointer transition-colors bg-red-900/30 border-red-900/50 text-white">
                                   <span className="text-[10px] font-bold opacity-70">{getInitials(attacker?.name)}</span>
                                   <span className="font-bold text-sm leading-none">{dmg}</span>
                                 </div>
@@ -961,46 +962,46 @@ import type { RosterPlayer, SaveState, TrackerPlayer } from "./types";
                 </div>
               )}
 
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 transform transition-transform">
-                <div className="bg-[#1a1c23] border-[4px] border-[#2d303b] p-3 md:p-4 rounded-full shadow-[0_0_50px_rgba(0,0,0,0.5)] flex items-center gap-4 md:gap-6">
-                  <div className="flex flex-col items-center px-2 md:px-4 hidden md:flex">
+              <div className="game-center-shell absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 transform transition-transform">
+                <div className="game-center-panel bg-[#1a1c23] border-[4px] border-[#2d303b] p-3 md:p-4 rounded-full shadow-[0_0_50px_rgba(0,0,0,0.5)] flex items-center gap-4 md:gap-6">
+                  <div className="game-center-side flex-col items-center px-2 md:px-4 hidden md:flex">
                     <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Partida</span>
                     <span className="font-mono text-lg md:text-xl">{formatTime(matchTime)}</span>
                   </div>
 
-                  <div className="flex flex-col items-center justify-center">
-                    <div className="flex items-center gap-2 mb-1">
+                  <div className="game-center-main flex flex-col items-center justify-center">
+                    <div className="game-turn-heading flex items-center gap-2 mb-1">
                       <span className="text-[10px] md:text-xs text-cyan-400 font-bold uppercase">Turno {turnNumber}</span>
                       {isPaused && <span className="bg-amber-500/20 text-amber-400 text-[8px] px-2 py-0.5 rounded font-bold uppercase">Pausado</span>}
                     </div>
                     
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => setIsPaused(!isPaused)} className={`p-3 md:p-4 rounded-full shadow-lg transition border-2 ${isPaused ? 'bg-amber-600 border-amber-400 text-white' : 'bg-cyan-700 border-cyan-500 text-white'}`}>
+                    <div className="game-center-actions flex items-center gap-2">
+                      <button onClick={() => setIsPaused(!isPaused)} className={`game-pause-button p-3 md:p-4 rounded-full shadow-lg transition border-2 ${isPaused ? 'bg-amber-600 border-amber-400 text-white' : 'bg-cyan-700 border-cyan-500 text-white'}`}>
                         {isPaused ? <IconPlay size={18}/> : <IconPause size={18}/>}
                       </button>
                       
                       {isPaused ? (
                         <>
-                          <button onClick={(e) => { e.stopPropagation(); setResetPromptOpen(true); }} className="bg-red-700 hover:bg-red-600 text-white font-bold py-3 px-3 rounded-full shadow-lg transition border-2 border-red-500/50">
+                          <button onClick={(e) => { e.stopPropagation(); setResetPromptOpen(true); }} className="game-paused-action bg-red-700 hover:bg-red-600 text-white font-bold py-3 px-3 rounded-full shadow-lg transition border-2 border-red-500/50">
                             <IconRotate size={18}/>
                           </button>
-                          <button onClick={(e) => { e.stopPropagation(); triggerEndGame(); }} className="bg-cyan-700 hover:bg-cyan-600 text-white font-bold py-3 px-3 rounded-full shadow-lg transition border-2 border-cyan-500/50">
+                          <button onClick={(e) => { e.stopPropagation(); triggerEndGame(); }} className="game-paused-action bg-cyan-700 hover:bg-cyan-600 text-white font-bold py-3 px-3 rounded-full shadow-lg transition border-2 border-cyan-500/50">
                             <IconTrophy size={18}/>
                           </button>
                         </>
                       ) : (
-                        <button onClick={handlePassTurn} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="bg-cyan-700 hover:bg-cyan-600 text-white font-bold py-3 px-4 md:py-4 md:px-6 rounded-full shadow-lg transition border-2 border-cyan-500/50 text-sm md:text-base">
+                        <button onClick={handlePassTurn} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="game-pass-turn bg-cyan-700 hover:bg-cyan-600 text-white font-bold py-3 px-4 md:py-4 md:px-6 rounded-full shadow-lg transition border-2 border-cyan-500/50 text-sm md:text-base">
                           Passar Turno
                         </button>
                       )}
                     </div>
-                    <div className="flex items-center gap-1 mt-1 text-gray-400">
+                    <div className="game-turn-timer flex items-center gap-1 mt-1 text-gray-400">
                       <IconClock size={10} />
                       <span className="font-mono text-xs">{formatTime(turnTime)}</span>
                     </div>
                   </div>
 
-                  <div className="flex flex-col items-center px-2 hidden md:flex">
+                  <div className="game-center-side flex-col items-center px-2 hidden md:flex">
                     <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Ativo</span>
                     <span className="font-bold text-base text-cyan-400 uppercase">{players[activePlayerIdx]?.name}</span>
                   </div>
