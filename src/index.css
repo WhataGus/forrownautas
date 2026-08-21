@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: black;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  overscroll-behavior: none;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes dash {
+  to { stroke-dashoffset: -24; }
+}
+
+.animate-dash { animation: dash 0.8s linear infinite; }
+
+.toggle-checkbox:checked { right: 0; border-color: #06b6d4; }
+.toggle-checkbox:checked + .toggle-label { background-color: #06b6d4; }

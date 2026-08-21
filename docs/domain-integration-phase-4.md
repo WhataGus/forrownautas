@@ -6,9 +6,8 @@ contains a display projection of commander damage, but persistence rows are
 always generated from the domain matrix. No legacy damage accumulator fallback
 exists.
 
-`game/browser-adapter.js` is intentionally an interop bridge only. The future
-Vite/TypeScript migration must import `game/domain.js` directly and remove the
-window bridge and projection layer.
+Phase 5 imports the tested modules directly from the Vite React frontend and
+removes the temporary browser bridge. There is no browser-global fallback path.
 
 `game/save-flow.js` is production code, used by the UI and tests. Only a valid
 2xx JSON response containing a match id permits reset. API failures, malformed
