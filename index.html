@@ -100,11 +100,6 @@
           const [gameStage, setGameStage] = useState('setup');
           const [registeredRoster, setRegisteredRoster] = useState([]);
 
-          const [statsData, setStatsData] = useState(null);
-          const [statsLoading, setStatsLoading] = useState(false);
-          const [statsError, setStatsError] = useState(null);
-          const [statsTab, setStatsTab] = useState('players');
-
           const [numPlayers, setNumPlayers] = useState(4);
           const [startingLife, setStartingLife] = useState(40);
           
@@ -220,29 +215,6 @@
             }
             loadRoster();
           }, []);
-
-          // CARREGAMENTO DE ESTATÍSTICAS (sob demanda, ao entrar na tela de rankings)
-          useEffect(() => {
-            if (gameStage !== 'stats') return;
-            let cancelled = false;
-            async function loadStats() {
-              setStatsLoading(true);
-              setStatsError(null);
-              try {
-                const res = await fetch('/api/stats');
-                if (!res.ok) throw new Error('Falha ao carregar estatísticas');
-                const data = await res.json();
-                if (!cancelled) setStatsData(data);
-              } catch (err) {
-                console.error("Erro ao carregar stats:", err);
-                if (!cancelled) setStatsError('Não foi possível carregar as estatísticas.');
-              } finally {
-                if (!cancelled) setStatsLoading(false);
-              }
-            }
-            loadStats();
-            return () => { cancelled = true; };
-          }, [gameStage]);
 
           // Cronômetro
           useEffect(() => {
@@ -700,9 +672,6 @@
                   <div className="flex justify-between items-center mb-6">
                     <h1 className="text-2xl font-bold">Start game</h1>
                     <div className="flex gap-2">
-                      <button onClick={() => setGameStage('stats')} className="bg-[#1c1f28] border border-[#2a2e3d] text-gray-300 text-xs px-4 py-2.5 rounded-xl font-bold hover:bg-[#252936] transition flex items-center gap-2">
-                        <IconTrophy size={14} /><span>Rankings</span>
-                      </button>
                       <button onClick={() => setGameStage('roster_manager')} className="bg-[#1c1f28] border border-[#2a2e3d] text-gray-300 text-xs px-4 py-2.5 rounded-xl font-bold hover:bg-[#252936] transition flex items-center gap-2">
                         <span>⚙️ Players</span>
                       </button>
@@ -793,201 +762,6 @@
 
                 <div className="shrink-0 p-6 pt-4 bg-[#12141a] border-t border-[#1c1f28]">
                   <button onClick={() => setGameStage('setup')} className="w-full py-4 bg-cyan-700 hover:bg-cyan-600 rounded-2xl font-black text-lg text-white shadow-lg transition">Salvar e Voltar</button>
-                </div>
-              </div>
-            );
-          }
-
-          // TELA DE RANKINGS / ESTATÍSTICAS
-          if (gameStage === 'stats') {
-            const totals = statsData?.totals;
-            const STATS_TABS = [
-              { key: 'players', label: 'Jogadores' },
-              { key: 'decks', label: 'Decks' },
-              { key: 'rivalries', label: 'Rivalidades' },
-              { key: 'winConditions', label: 'Vitórias' },
-            ];
-
-            return (
-              <div className="w-full h-full bg-[#12141a] text-white flex flex-col relative select-none">
-                <div className="flex-1 overflow-y-auto p-6" style={{ touchAction: 'pan-y' }}>
-                  <div className="flex justify-between items-center mb-6">
-                    <button onClick={() => setGameStage('setup')} className="text-cyan-400 font-bold">&larr; Back</button>
-                    <h1 className="text-xl font-bold flex items-center gap-2"><IconTrophy size={18} className="text-yellow-400" /> Rankings</h1>
-                    <div className="w-10"></div>
-                  </div>
-
-                  {statsLoading && (
-                    <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-3">
-                      <IconRotate size={28} className="animate-spin text-cyan-400" />
-                      <span className="text-sm">Carregando estatísticas...</span>
-                    </div>
-                  )}
-
-                  {!statsLoading && statsError && (
-                    <div className="bg-red-950/40 border border-red-900/50 rounded-2xl p-6 text-center text-red-300 text-sm">
-                      {statsError}
-                    </div>
-                  )}
-
-                  {!statsLoading && !statsError && statsData && totals && totals.matches === 0 && (
-                    <div className="bg-[#1c1f28] border border-[#2a2e3d] rounded-2xl p-8 text-center text-gray-400 text-sm">
-                      Nenhuma partida registrada ainda. Jogue uma partida para começar a gerar estatísticas!
-                    </div>
-                  )}
-
-                  {!statsLoading && !statsError && statsData && totals && totals.matches > 0 && (
-                    <React.Fragment>
-                      {/* Resumo geral */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                        <div className="bg-[#1c1f28] border border-[#2a2e3d] rounded-xl p-3 text-center">
-                          <div className="text-xl font-black text-cyan-300">{totals.matches}</div>
-                          <div className="text-[10px] uppercase text-gray-500 font-bold tracking-wider">Partidas</div>
-                        </div>
-                        <div className="bg-[#1c1f28] border border-[#2a2e3d] rounded-xl p-3 text-center">
-                          <div className="text-xl font-black text-cyan-300">{formatTime(totals.avg_seconds)}</div>
-                          <div className="text-[10px] uppercase text-gray-500 font-bold tracking-wider">Duração Média</div>
-                        </div>
-                        <div className="bg-[#1c1f28] border border-[#2a2e3d] rounded-xl p-3 text-center">
-                          <div className="text-xl font-black text-cyan-300">{totals.avg_turns}</div>
-                          <div className="text-[10px] uppercase text-gray-500 font-bold tracking-wider">Turnos Médios</div>
-                        </div>
-                        <div className="bg-[#1c1f28] border border-[#2a2e3d] rounded-xl p-3 text-center">
-                          <div className="text-xl font-black text-cyan-300">{totals.infinite_games}</div>
-                          <div className="text-[10px] uppercase text-gray-500 font-bold tracking-wider">Combos Infinitos</div>
-                        </div>
-                      </div>
-
-                      {/* Abas */}
-                      <div className="flex gap-1 mb-4 bg-[#1c1f28] border border-[#2a2e3d] rounded-xl p-1">
-                        {STATS_TABS.map(tab => (
-                          <button key={tab.key} onClick={() => setStatsTab(tab.key)} className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${statsTab === tab.key ? 'bg-cyan-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}>
-                            {tab.label}
-                          </button>
-                        ))}
-                      </div>
-
-                      {/* Aba: Jogadores */}
-                      {statsTab === 'players' && (
-                        <div className="space-y-2 pb-4">
-                          {statsData.players.length === 0 && (
-                            <div className="text-center text-gray-500 text-sm py-8">Sem dados de jogadores ainda.</div>
-                          )}
-                          {statsData.players.map((p, idx) => (
-                            <div key={p.name + idx} className="bg-[#1c1f28] border border-[#2a2e3d] rounded-2xl p-4">
-                              <div className="flex justify-between items-center mb-3">
-                                <div className="flex items-center gap-2">
-                                  {idx === 0 && <IconTrophy size={16} className="text-yellow-400" />}
-                                  <h3 className="font-black text-white">{p.name}</h3>
-                                </div>
-                                <div className="text-right">
-                                  <div className="text-lg font-black text-cyan-300">{p.winRate ?? 0}%</div>
-                                  <div className="text-[10px] text-gray-500 font-bold">{p.wins}V / {p.games}J</div>
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-3 gap-2 text-center">
-                                <div className="bg-black/30 rounded-lg py-2">
-                                  <div className="text-sm font-bold text-white">{p.avgPlacement ?? '-'}</div>
-                                  <div className="text-[9px] uppercase text-gray-500 font-bold">Posição Média</div>
-                                </div>
-                                <div className="bg-black/30 rounded-lg py-2">
-                                  <div className="text-sm font-bold text-white">{p.damageDealt}</div>
-                                  <div className="text-[9px] uppercase text-gray-500 font-bold">Dano Causado</div>
-                                </div>
-                                <div className="bg-black/30 rounded-lg py-2">
-                                  <div className="text-sm font-bold text-white">{p.damageReceived}</div>
-                                  <div className="text-[9px] uppercase text-gray-500 font-bold">Dano Recebido</div>
-                                </div>
-                                <div className="bg-black/30 rounded-lg py-2">
-                                  <div className="text-sm font-bold text-white">{p.avgFinalLife}</div>
-                                  <div className="text-[9px] uppercase text-gray-500 font-bold">Vida Final Média</div>
-                                </div>
-                                <div className="bg-black/30 rounded-lg py-2">
-                                  <div className="text-sm font-bold text-white">{p.poisonReceived}</div>
-                                  <div className="text-[9px] uppercase text-gray-500 font-bold">Veneno Recebido</div>
-                                </div>
-                                <div className="bg-black/30 rounded-lg py-2">
-                                  <div className="text-sm font-bold text-white">{p.mulligans}</div>
-                                  <div className="text-[9px] uppercase text-gray-500 font-bold">Mulligans</div>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Aba: Decks */}
-                      {statsTab === 'decks' && (
-                        <div className="space-y-2 pb-4">
-                          {statsData.decks.length === 0 && (
-                            <div className="text-center text-gray-500 text-sm py-8">Sem dados de decks ainda.</div>
-                          )}
-                          {statsData.decks.map((d, idx) => (
-                            <div key={d.deckName + idx} className="bg-[#1c1f28] border border-[#2a2e3d] rounded-2xl p-4 flex justify-between items-center">
-                              <div>
-                                <h3 className="font-black text-white">{d.deckName}</h3>
-                                <span className="text-xs text-gray-500">{d.playerName}</span>
-                              </div>
-                              <div className="text-right">
-                                <div className="text-lg font-black text-cyan-300">{d.winRate ?? 0}%</div>
-                                <div className="text-[10px] text-gray-500 font-bold">{d.wins}V / {d.games}J</div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Aba: Rivalidades */}
-                      {statsTab === 'rivalries' && (
-                        <div className="space-y-2 pb-4">
-                          {statsData.rivalries.length === 0 && (
-                            <div className="text-center text-gray-500 text-sm py-8">Sem dano registrado entre jogadores ainda.</div>
-                          )}
-                          {statsData.rivalries.slice(0, 15).map((r, idx) => (
-                            <div key={idx} className="bg-[#1c1f28] border border-[#2a2e3d] rounded-2xl p-4">
-                              <div className="flex justify-between items-center mb-2">
-                                <div className="flex items-center gap-2 text-sm font-bold">
-                                  <span className="text-white">{r.source}</span>
-                                  <IconSwords size={14} className="text-red-400" />
-                                  <span className="text-white">{r.target}</span>
-                                </div>
-                                <span className="text-lg font-black text-red-300">{r.total}</span>
-                              </div>
-                              <div className="flex gap-2 text-[10px] text-gray-400 flex-wrap">
-                                {r.combat > 0 && <span className="bg-black/30 px-2 py-1 rounded-lg">Combate: {r.combat}</span>}
-                                {r.commander > 0 && <span className="bg-black/30 px-2 py-1 rounded-lg">Comandante: {r.commander}</span>}
-                                {r.infect > 0 && <span className="bg-black/30 px-2 py-1 rounded-lg">Infect: {r.infect}</span>}
-                                {r.noncombat > 0 && <span className="bg-black/30 px-2 py-1 rounded-lg">Não-Combate: {r.noncombat}</span>}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Aba: Condições de Vitória */}
-                      {statsTab === 'winConditions' && (
-                        <div className="space-y-2 pb-4">
-                          {statsData.winConditions.length === 0 && (
-                            <div className="text-center text-gray-500 text-sm py-8">Sem dados ainda.</div>
-                          )}
-                          {statsData.winConditions.map((w, idx) => {
-                            const pct = totals.matches > 0 ? Math.round((w.count / totals.matches) * 100) : 0;
-                            return (
-                              <div key={idx} className="bg-[#1c1f28] border border-[#2a2e3d] rounded-2xl p-4">
-                                <div className="flex justify-between items-center mb-2">
-                                  <span className="font-bold text-white text-sm">{w.condition}</span>
-                                  <span className="text-xs text-gray-400 font-bold">{w.count} ({pct}%)</span>
-                                </div>
-                                <div className="w-full bg-black/30 rounded-full h-2 overflow-hidden">
-                                  <div className="bg-cyan-500 h-2 rounded-full" style={{ width: `${pct}%` }}></div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </React.Fragment>
-                  )}
                 </div>
               </div>
             );
