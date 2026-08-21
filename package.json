@@ -2,6 +2,9 @@
   "name": "forrownautas",
   "private": true,
   "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
   "dependencies": {
     "@netlify/database": "^1.1.0",
     "@netlify/functions": "^6.0.0",
