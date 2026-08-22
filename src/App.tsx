@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { DAMAGE_TYPE } from "../shared/damage-types.js";
 import {
+  applyFrontendDamage,
   applyTrackedDamage,
   createFrontendMatch,
   damagePayloadFrom,
@@ -107,7 +108,7 @@ import type { RosterPlayer, SaveState, TrackerPlayer } from "./types";
           const saveInFlightRef = useRef(false);
 
           // Códigos de tipo de dano — precisam bater com DAMAGE_TYPE em db/constants.ts
-          const { COMBAT: DMG_COMBAT, COMMANDER: DMG_COMMANDER, INFECT: DMG_INFECT, NONCOMBAT: DMG_NONCOMBAT } = DAMAGE_TYPE;
+          const { COMMANDER: DMG_COMMANDER } = DAMAGE_TYPE;
 
           // Acumuladores da partida. Ficam num ref (e não no state dos jogadores)
           // para não disparar re-render a cada ponto de dano registrado.
@@ -467,34 +468,19 @@ import type { RosterPlayer, SaveState, TrackerPlayer } from "./types";
           };
 
           const confirmDamage = () => {
-            // Registrado antes do setPlayers: o updater do React pode rodar duas
-            // vezes em StrictMode, o que dobraria a contagem se ficasse lá dentro.
-            const dmgCode = damageModal.isInfect
-              ? DMG_INFECT
-              : (damageType === 'commander' ? DMG_COMMANDER : DMG_COMBAT);
-            if (!applyCanonicalDamage({ sourceId: damageModal.attackerId, targetId: damageModal.targetId, damageType: dmgCode, amount: damageInput })) return;
-            if (damageModal.isLifelink) recordLifeGain(damageModal.attackerId, damageInput);
-
-            setPlayers(prev => {
-              return prev.map(p => {
-                if (p.id === damageModal.attackerId && damageModal.isLifelink) {
-                   return { ...p, life: p.life + damageInput };
-                }
-                if (p.id === damageModal.targetId) {
-                  let newLife = p.life;
-                  let newPoison = p.poison;
-                  if (damageModal.isInfect) newPoison += damageInput;
-                  else newLife -= damageInput;
-
-                  const newCmdDmg = { ...(p.commanderDamage || {}) };
-                  if (damageType === 'commander') {
-                    newCmdDmg[damageModal.attackerId] = (newCmdDmg[damageModal.attackerId] || 0) + damageInput;
-                  }
-                  return { ...p, life: newLife, poison: newPoison, commanderDamage: newCmdDmg };
-                }
-                return p;
-              });
+            if (!canonicalMatchRef.current) { setCanonicalError(); return; }
+            const result = applyFrontendDamage(canonicalMatchRef.current, players, {
+              sourceId: damageModal.attackerId,
+              targetId: damageModal.targetId,
+              selectedDamageType: damageType,
+              amount: damageInput,
+              isInfect: damageModal.isInfect,
+              isLifelink: damageModal.isLifelink
             });
+            canonicalMatchRef.current = result.match;
+            setPlayers(result.players);
+            setDomainError(null);
+            if (damageModal.isLifelink) recordLifeGain(damageModal.attackerId, damageInput);
             setDamageModal({ isOpen: false, attackerId: null, targetId: null, isLifelink: false, isInfect: false });
           };
 
@@ -889,13 +875,6 @@ import type { RosterPlayer, SaveState, TrackerPlayer } from "./types";
                       )}
 
                       <div className={`game-player-content w-full h-full transition-transform duration-300 ${idx < 2 ? 'rotate-180' : ''} ${player.isDead ? 'opacity-20 pointer-events-none' : ''}`}>
-                        <div className={`game-player-identity flex justify-between items-start rounded-lg border border-black/15 bg-black/15 ${player.textColor}`}>
-                          <div className="overflow-hidden">
-                            <h2 className="game-player-name text-xl sm:text-2xl font-bold tracking-wider uppercase truncate">{player.name}</h2>
-                            <p className="game-player-commander text-xs sm:text-sm italic opacity-70 truncate">{player.commander}</p>
-                          </div>
-                        </div>
-
                         <div className="game-life-row flex items-center justify-center gap-2 sm:gap-6 my-auto flex-grow relative">
                           <button onClick={(e) => { e.stopPropagation(); updateLife(player.id, -1); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="game-life-button p-2 sm:p-4 rounded-full transition bg-black/20 hover:bg-black/40 text-white">
                             <IconMinus size={24} />
@@ -910,42 +889,50 @@ import type { RosterPlayer, SaveState, TrackerPlayer } from "./types";
                           </button>
                         </div>
 
-                        <div className="game-secondary-row flex items-end gap-1 sm:gap-2">
-                          <div className="game-core-stats flex items-center gap-1 sm:gap-2">
-                            <div className={`game-stat-control flex flex-col items-center rounded-lg p-1 sm:p-2 border ${player.btnClass}`}>
-                              <span className="text-[8px] sm:text-[10px] uppercase font-bold opacity-70">Taxa</span>
-                              <div className="flex items-center gap-1 sm:gap-2">
-                                <button onClick={(e) => { e.stopPropagation(); updateTax(player.id, -2); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="game-stat-button opacity-60 hover:opacity-100"><IconMinus size={10}/></button>
-                                <span className="game-stat-value font-bold text-xs sm:text-base">{player.tax}</span>
-                                <button onClick={(e) => { e.stopPropagation(); updateTax(player.id, 2); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="game-stat-button opacity-60 hover:opacity-100"><IconPlus size={10}/></button>
-                              </div>
+                        <div className="game-outer-rail">
+                          <div className={`game-player-identity flex justify-between items-start rounded-lg border border-black/15 bg-black/15 ${player.textColor}`}>
+                            <div className="overflow-hidden">
+                              <h2 className="game-player-name text-xl sm:text-2xl font-bold tracking-wider uppercase truncate">{player.name}</h2>
+                              <p className="game-player-commander text-xs sm:text-sm italic opacity-70 truncate">{player.commander}</p>
                             </div>
                           </div>
-                          <div className="game-commander-damage-list flex flex-wrap gap-1 sm:gap-2 items-center">
-                            {player.poison > 0 && (
-                              <button
-                                type="button"
-                                title="Reduzir poison em 1"
-                                aria-label={`Poison ${player.poison}. Toque para reduzir em 1.`}
-                                onClick={(e) => { e.stopPropagation(); updatePoison(player.id, -1); }}
-                                onDoubleClick={(e) => e.stopPropagation()}
-                                onPointerDown={(e) => e.stopPropagation()}
-                                className="game-received-badge game-poison-badge flex items-center justify-center gap-1 rounded-lg border bg-green-900/30 border-green-500/50 text-green-400"
-                              >
-                                <IconDroplet size={11}/>
-                                <span className="font-bold text-sm leading-none">{player.poison}</span>
-                              </button>
-                            )}
-                            {(Object.entries(player.commanderDamage || {}) as Array<[string, number]>).map(([atkId, dmg]) => {
-                              if (dmg <= 0) return null;
-                              const attacker = players.find(p => p.id === atkId);
-                              return (
-                                <div key={atkId} onClick={(e) => { e.stopPropagation(); correctCommanderDamage(atkId, player.id); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="game-received-badge game-commander-damage flex items-center justify-center gap-1 rounded-lg border cursor-pointer transition-colors bg-red-900/30 border-red-900/50 text-white">
-                                  <span className="text-[10px] font-bold opacity-70">{getInitials(attacker?.name)}</span>
-                                  <span className="font-bold text-sm leading-none">{dmg}</span>
+                          <div className="game-secondary-row flex items-end gap-1 sm:gap-2">
+                            <div className="game-core-stats flex items-center gap-1 sm:gap-2">
+                              <div className={`game-stat-control flex flex-col items-center rounded-lg p-1 sm:p-2 border ${player.btnClass}`}>
+                                <span className="text-[8px] sm:text-[10px] uppercase font-bold opacity-70">Taxa</span>
+                                <div className="flex items-center gap-1 sm:gap-2">
+                                  <button onClick={(e) => { e.stopPropagation(); updateTax(player.id, -2); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="game-stat-button opacity-60 hover:opacity-100"><IconMinus size={10}/></button>
+                                  <span className="game-stat-value font-bold text-xs sm:text-base">{player.tax}</span>
+                                  <button onClick={(e) => { e.stopPropagation(); updateTax(player.id, 2); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="game-stat-button opacity-60 hover:opacity-100"><IconPlus size={10}/></button>
                                 </div>
-                              );
-                            })}
+                              </div>
+                            </div>
+                            <div className="game-commander-damage-list flex flex-wrap gap-1 sm:gap-2 items-center">
+                              {player.poison > 0 && (
+                                <button
+                                  type="button"
+                                  title="Reduzir poison em 1"
+                                  aria-label={`Poison ${player.poison}. Toque para reduzir em 1.`}
+                                  onClick={(e) => { e.stopPropagation(); updatePoison(player.id, -1); }}
+                                  onDoubleClick={(e) => e.stopPropagation()}
+                                  onPointerDown={(e) => e.stopPropagation()}
+                                  className="game-received-badge game-poison-badge flex items-center justify-center gap-1 rounded-lg border bg-green-900/30 border-green-500/50 text-green-400"
+                                >
+                                  <IconDroplet size={11}/>
+                                  <span className="font-bold text-sm leading-none">{player.poison}</span>
+                                </button>
+                              )}
+                              {(Object.entries(player.commanderDamage || {}) as Array<[string, number]>).map(([atkId, dmg]) => {
+                                if (dmg <= 0) return null;
+                                const attacker = players.find(p => p.id === atkId);
+                                return (
+                                  <div key={atkId} onClick={(e) => { e.stopPropagation(); correctCommanderDamage(atkId, player.id); }} onDoubleClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="game-received-badge game-commander-damage flex items-center justify-center gap-1 rounded-lg border cursor-pointer transition-colors bg-red-900/30 border-red-900/50 text-white">
+                                    <span className="text-[10px] font-bold opacity-70">{getInitials(attacker?.name)}</span>
+                                    <span className="font-bold text-sm leading-none">{dmg}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
                         </div>
                       </div>
