@@ -283,6 +283,18 @@ html, body {
 }
 
 @media (min-width: 600px) and (max-height: 600px) {
+  .gameplay-screen[data-player-count="4"] {
+    --game-center-life-gutter: 5.5rem;
+  }
+
+  .gameplay-screen[data-player-count="4"] .game-player-quadrant:is([data-seat="0"], [data-seat="3"]) .game-life-row {
+    margin-left: var(--game-center-life-gutter);
+  }
+
+  .gameplay-screen[data-player-count="4"] .game-player-quadrant:is([data-seat="1"], [data-seat="2"]) .game-life-row {
+    margin-right: var(--game-center-life-gutter);
+  }
+
   .game-player-quadrant {
     padding: 0.25rem;
   }
