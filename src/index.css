@@ -26,3 +26,400 @@ html, body {
 
 .toggle-checkbox:checked { right: 0; border-color: #06b6d4; }
 .toggle-checkbox:checked + .toggle-label { background-color: #06b6d4; }
+
+/* Gameplay-only responsive table layout. */
+.gameplay-screen,
+.gameplay-grid,
+.game-player-quadrant,
+.game-player-content,
+.game-life-row {
+  min-width: 0;
+  min-height: 0;
+}
+
+.gameplay-grid {
+  padding-top: max(0.25rem, env(safe-area-inset-top));
+  padding-right: max(0.25rem, env(safe-area-inset-right));
+  padding-bottom: max(0.25rem, env(safe-area-inset-bottom));
+  padding-left: max(0.25rem, env(safe-area-inset-left));
+}
+
+.game-player-quadrant {
+  container-type: size;
+  padding: clamp(0.25rem, 1vmin, 0.75rem);
+}
+
+.game-player-content {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: clamp(0.125rem, 0.6vmin, 0.5rem);
+}
+
+.game-outer-rail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, auto) auto;
+  min-width: 0;
+  width: 100%;
+  align-items: flex-end;
+  gap: clamp(0.25rem, 0.8vmin, 0.75rem);
+}
+
+.game-player-quadrant:is([data-seat="0"], [data-seat="3"]) .game-player-identity {
+  grid-column: 2;
+}
+
+.game-player-quadrant:is([data-seat="0"], [data-seat="3"]) .game-core-stats {
+  grid-column: 1;
+}
+
+.game-player-identity,
+.game-player-identity > div {
+  min-width: 0;
+}
+
+.game-player-identity {
+  grid-column: 1;
+  grid-row: 2;
+  width: min(100%, 15rem);
+  max-width: 100%;
+  padding: clamp(0.25rem, 0.7vmin, 0.5rem) clamp(0.375rem, 1vmin, 0.75rem);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.08) inset;
+}
+
+.gameplay-screen .game-player-name {
+  font-size: clamp(0.875rem, 3.2vmin, 1.5rem);
+  line-height: 1.1;
+}
+
+.gameplay-screen .game-player-commander {
+  font-size: clamp(0.625rem, 2vmin, 0.875rem);
+  line-height: 1.2;
+}
+
+.gameplay-screen .game-life-row {
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
+  align-items: center;
+  gap: clamp(0.125rem, 0.6vmin, 0.5rem);
+  margin: 0;
+}
+
+.gameplay-screen .game-life-button {
+  display: inline-flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.gameplay-screen .game-life-total {
+  min-width: 0;
+  overflow: hidden;
+  text-align: center;
+  font-size: clamp(2.25rem, 14vmin, 8rem);
+}
+
+@supports (font-size: 1cqh) {
+  .gameplay-screen .game-life-total {
+    font-size: clamp(2.25rem, min(26cqw, 30cqh), 8rem);
+  }
+}
+
+.gameplay-screen .game-secondary-row {
+  display: contents;
+}
+
+.gameplay-screen .game-core-stats {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
+  flex: 0 0 auto;
+}
+
+.gameplay-screen .game-stat-control {
+  flex: 0 0 auto;
+  padding: 0.125rem 0.25rem;
+}
+
+.gameplay-screen .game-stat-button {
+  display: inline-flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.gameplay-screen .game-commander-damage-list {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  width: 100%;
+  min-width: 0;
+  max-height: 5.5rem;
+  flex: 1 1 auto;
+  justify-content: flex-end;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.gameplay-screen .game-commander-damage-list:empty {
+  display: none;
+}
+
+.gameplay-screen .game-commander-damage-list:not(:empty) {
+  min-width: 2.625rem;
+}
+
+.gameplay-screen .game-received-badge {
+  width: 2.625rem;
+  height: 2.625rem;
+  min-width: 2.625rem;
+  padding: 0.125rem;
+  flex: 0 0 auto;
+}
+
+.gameplay-screen .game-poison-badge {
+  cursor: pointer;
+}
+
+.game-player-quadrant:is([data-seat="0"], [data-seat="3"]) .game-commander-damage-list {
+  justify-content: flex-start;
+}
+
+@container (max-width: 210px) {
+  .gameplay-screen .game-core-stats {
+    flex-direction: column;
+  }
+}
+
+.gameplay-grid[data-player-count="5"] .game-core-stats,
+.gameplay-grid[data-player-count="6"] .game-core-stats {
+  flex-direction: row;
+}
+
+.gameplay-grid[data-player-count="5"] .game-stat-button,
+.gameplay-grid[data-player-count="6"] .game-stat-button {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.gameplay-screen .game-center-shell {
+  max-width: min(90vw, 42rem);
+}
+
+.gameplay-screen .game-center-panel {
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.gameplay-screen .game-pause-button,
+.gameplay-screen .game-paused-action {
+  display: inline-flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.gameplay-screen .game-pass-turn {
+  min-height: 2.75rem;
+}
+
+.gameplay-screen[data-player-count="2"] .game-player-quadrant {
+  padding-bottom: 7rem;
+}
+
+.gameplay-screen[data-player-count="2"] .game-center-shell {
+  top: auto;
+  bottom: max(0.5rem, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+}
+
+.gameplay-screen[data-player-count="5"] .game-center-shell,
+.gameplay-screen[data-player-count="6"] .game-center-shell {
+  top: 33.333333%;
+}
+
+@media (max-width: 480px) and (orientation: portrait) {
+  .game-player-quadrant {
+    padding: 0.25rem;
+  }
+
+  .game-player-quadrant[data-seat="0"],
+  .game-player-quadrant[data-seat="1"] {
+    padding-bottom: 1.75rem;
+  }
+
+  .game-player-quadrant[data-seat="2"],
+  .game-player-quadrant[data-seat="3"] {
+    padding-top: 1.75rem;
+  }
+
+  .gameplay-screen .game-life-total {
+    font-size: clamp(2.25rem, 12vw, 5.75rem);
+  }
+
+  .gameplay-screen .game-center-shell {
+    max-width: min(13rem, 62vw);
+  }
+
+  .gameplay-screen .game-center-panel {
+    gap: 0.375rem;
+    padding: 0.5rem;
+    border-width: 2px;
+  }
+
+  .gameplay-screen .game-center-side {
+    display: none;
+  }
+
+  .gameplay-screen .game-pass-turn {
+    padding: 0.625rem 0.75rem;
+    font-size: 0.75rem;
+  }
+}
+
+@media (min-width: 600px) and (max-height: 600px) {
+  .game-player-quadrant {
+    padding: 0.25rem;
+  }
+
+  .game-player-quadrant[data-seat="0"],
+  .game-player-quadrant[data-seat="1"] {
+    padding-bottom: 1rem;
+  }
+
+  .game-player-quadrant[data-seat="2"],
+  .game-player-quadrant[data-seat="3"] {
+    padding-top: 1rem;
+  }
+
+  .game-player-content {
+    gap: 0.125rem;
+  }
+
+  .gameplay-screen .game-player-name {
+    font-size: clamp(0.75rem, 3.2vh, 1.125rem);
+  }
+
+  .gameplay-screen .game-player-commander {
+    font-size: clamp(0.5625rem, 2.2vh, 0.75rem);
+  }
+
+  .gameplay-screen .game-life-row {
+    grid-template-columns: 2.625rem minmax(0, 1fr) 2.625rem;
+    gap: 0.125rem;
+  }
+
+  .gameplay-screen .game-life-button {
+    width: 2.625rem;
+    height: 2.625rem;
+  }
+
+  .gameplay-screen .game-life-total {
+    font-size: clamp(2.5rem, 17vh, 5.25rem);
+  }
+
+  .gameplay-screen .game-stat-button {
+    width: 1.625rem;
+    height: 1.625rem;
+  }
+
+  .gameplay-screen .game-commander-damage-list {
+    max-height: 3.75rem;
+  }
+
+  .gameplay-screen .game-received-badge {
+    width: 2.25rem;
+    height: 2.25rem;
+    min-width: 2.25rem;
+  }
+
+  .gameplay-screen .game-center-shell {
+    max-width: min(17rem, 46vw);
+  }
+
+  .gameplay-screen .game-center-panel {
+    gap: 0.375rem;
+    padding: 0.375rem 0.5rem;
+    border-width: 2px;
+    border-radius: 1.75rem;
+  }
+
+  .gameplay-screen .game-center-side {
+    display: none;
+  }
+
+  .gameplay-screen .game-turn-heading {
+    margin-bottom: 0;
+  }
+
+  .gameplay-screen .game-center-actions {
+    gap: 0.375rem;
+  }
+
+  .gameplay-screen .game-pause-button,
+  .gameplay-screen .game-paused-action {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .gameplay-screen .game-pass-turn {
+    min-height: 2.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+  }
+
+  .gameplay-screen .game-turn-timer {
+    margin-top: 0;
+    font-size: 0.6875rem;
+  }
+
+  .gameplay-screen:is([data-player-count="5"], [data-player-count="6"]) .game-player-quadrant {
+    padding: 0.125rem;
+  }
+
+  .gameplay-screen:is([data-player-count="5"], [data-player-count="6"]) .game-player-name {
+    font-size: 0.625rem;
+  }
+
+  .gameplay-screen:is([data-player-count="5"], [data-player-count="6"]) .game-player-commander {
+    font-size: 0.5rem;
+  }
+
+  .gameplay-screen:is([data-player-count="5"], [data-player-count="6"]) .game-life-row {
+    grid-template-columns: 2.5rem minmax(0, 1fr) 2.5rem;
+    gap: 0;
+  }
+
+  .gameplay-screen:is([data-player-count="5"], [data-player-count="6"]) .game-life-button {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .gameplay-screen:is([data-player-count="5"], [data-player-count="6"]) .game-life-total {
+    font-size: clamp(2rem, 10vh, 2.625rem);
+  }
+
+  .gameplay-screen:is([data-player-count="5"], [data-player-count="6"]) .game-stat-control {
+    padding: 0 0.125rem;
+  }
+
+  .gameplay-screen:is([data-player-count="5"], [data-player-count="6"]) .game-stat-button {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .gameplay-screen:is([data-player-count="5"], [data-player-count="6"]) .game-stat-value {
+    font-size: 0.75rem;
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 700px) {
+  .gameplay-screen .game-center-side {
+    display: flex;
+  }
+}
