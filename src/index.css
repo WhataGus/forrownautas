@@ -56,16 +56,21 @@ html, body {
 }
 
 .game-outer-rail {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, auto) auto;
   min-width: 0;
   width: 100%;
   align-items: flex-end;
-  justify-content: space-between;
   gap: clamp(0.25rem, 0.8vmin, 0.75rem);
 }
 
-.game-player-quadrant:is([data-seat="0"], [data-seat="3"]) .game-outer-rail {
-  flex-direction: row-reverse;
+.game-player-quadrant:is([data-seat="0"], [data-seat="3"]) .game-player-identity {
+  grid-column: 2;
+}
+
+.game-player-quadrant:is([data-seat="0"], [data-seat="3"]) .game-core-stats {
+  grid-column: 1;
 }
 
 .game-player-identity,
@@ -74,8 +79,10 @@ html, body {
 }
 
 .game-player-identity {
-  width: min(48%, 15rem);
-  flex: 0 1 min(48%, 15rem);
+  grid-column: 1;
+  grid-row: 2;
+  width: min(100%, 15rem);
+  max-width: 100%;
   padding: clamp(0.25rem, 0.7vmin, 0.5rem) clamp(0.375rem, 1vmin, 0.75rem);
   box-shadow: 0 1px 0 rgb(255 255 255 / 0.08) inset;
 }
@@ -121,14 +128,13 @@ html, body {
 }
 
 .gameplay-screen .game-secondary-row {
-  min-width: 0;
-  flex: 1 1 auto;
-  max-width: calc(52% - 0.25rem);
-  flex-wrap: nowrap;
-  justify-content: flex-end;
+  display: contents;
 }
 
 .gameplay-screen .game-core-stats {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
   flex: 0 0 auto;
 }
 
@@ -146,9 +152,13 @@ html, body {
 }
 
 .gameplay-screen .game-commander-damage-list {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  width: 100%;
   min-width: 0;
-  max-height: 4.75rem;
+  max-height: 5.5rem;
   flex: 1 1 auto;
+  justify-content: flex-end;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -172,6 +182,10 @@ html, body {
 
 .gameplay-screen .game-poison-badge {
   cursor: pointer;
+}
+
+.game-player-quadrant:is([data-seat="0"], [data-seat="3"]) .game-commander-damage-list {
+  justify-content: flex-start;
 }
 
 @container (max-width: 210px) {
